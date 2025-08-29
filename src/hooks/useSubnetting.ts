@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { IPv4Subnet, SubnetDivisionMethod } from '../types';
 import {
   createSubnet,
@@ -10,6 +10,7 @@ import {
   isValidIp,
   isValidPrefix
 } from '../utils/ipv4Utils';
+import { deserializeSubnetState, getShareableUrl } from '../utils/urlState';
 
 interface SubnettingState {
   initialNetwork: IPv4Subnet | null;
@@ -28,6 +29,29 @@ const initialState: SubnettingState = {
 export const useSubnetting = () => {
   const [state, setState] = useState<SubnettingState>(initialState);
 
+  // Load state from URL on initialization
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlState = urlParams.get('state');
+
+    if (urlState) {
+      const deserializedState = deserializeSubnetState(urlState);
+
+      if (deserializedState) {
+        setState({
+          initialNetwork: deserializedState.initialNetwork,
+          subnets: deserializedState.subnets,
+          selectedSubnetId: deserializedState.selectedSubnetId,
+          error: null,
+        });
+      } else {
+        console.log('Failed to deserialize state from URL');
+      }
+    } else {
+      console.log('No state parameter found in URL');
+    }
+  }, []);
+
   const addInitialNetwork = useCallback((cidr: string) => {
     try {
       const { ip, prefix } = parseCidr(cidr);
@@ -38,8 +62,9 @@ export const useSubnetting = () => {
         selectedSubnetId: newInitialNetwork.id,
         error: null,
       });
-    } catch (err: any) {
-      setState(s => ({ ...s, error: err.message }));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Invalid CIDR notation';
+      setState(s => ({ ...s, error: errorMessage }));
     }
   }, []);
 
@@ -110,8 +135,9 @@ export const useSubnetting = () => {
 
         const updatedSubnets = updateSubnetTree(s.subnets, parentId, newChildren);
         return { ...s, subnets: updatedSubnets, error: null };
-      } catch (err: any) {
-        return { ...s, error: err.message };
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to divide subnet';
+        return { ...s, error: errorMessage };
       }
     });
   }, [findSubnetById, updateSubnetTree]);
@@ -194,5 +220,6 @@ export const useSubnetting = () => {
     selectSubnet,
     clearError,
     resetConfiguration,
+    getShareableUrl: () => getShareableUrl(state.initialNetwork, state.subnets, state.selectedSubnetId),
   };
 };

@@ -20,12 +20,18 @@ const App: React.FC = () => {
     selectSubnet,
     clearError,
     resetConfiguration,
+    getShareableUrl,
   } = useSubnetting();
 
   return (
     <div className="min-h-screen bg-background text-text font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <Header />
+        <Header 
+          getShareableUrl={getShareableUrl}
+          initialNetwork={initialNetwork}
+          subnets={subnets}
+          selectedSubnetId={selectedSubnetId}
+        />
 
         <NetworkInputForm onAddNetwork={addInitialNetwork} onResetConfiguration={resetConfiguration} error={error} clearError={clearError} />
 
