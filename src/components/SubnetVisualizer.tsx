@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { IPv4Subnet, SubnetDivisionMethod } from '../types';
-import { ChevronRight, Divide, Zap, Hash, Network } from 'lucide-react';
+import { ChevronRight, ChevronDown, Divide, Zap, Hash, Network } from 'lucide-react';
 
 interface SubnetNodeProps {
   subnet: IPv4Subnet;
   isSelected: boolean;
+  isExpanded: boolean;
   onSelect: (id: string) => void;
+  onToggleExpand: (id: string) => void;
   onDivideSubnet: (parentId: string, method: SubnetDivisionMethod, value: number | string) => void;
 }
 
-const SubnetNode: React.FC<SubnetNodeProps> = ({ subnet, isSelected, onSelect, onDivideSubnet }) => {
+const SubnetNode: React.FC<SubnetNodeProps> = ({ subnet, isSelected, isExpanded, onSelect, onToggleExpand, onDivideSubnet }) => {
   const depthClass = `ml-${subnet.depth * 4}`; // Indent based on depth
   const bgColor = subnet.children.length > 0 ? 'bg-gradient-to-r from-surface to-surface/80' : 'bg-gradient-to-r from-background to-background/80';
   const borderColor = isSelected ? 'border-primary ring-2 ring-primary shadow-primary/20' : 'border-border hover:border-primary/50';
@@ -20,17 +22,34 @@ const SubnetNode: React.FC<SubnetNodeProps> = ({ subnet, isSelected, onSelect, o
     onDivideSubnet(subnet.id, method, value);
   };
 
+  const handleExpandToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (subnet.children.length > 0) {
+      onToggleExpand(subnet.id);
+    }
+  };
+
   return (
     <div
-      className={`group flex flex-col items-start cursor-pointer transition-all duration-300 ease-in-out ${isSelected ? 'scale-[1.02] shadow-xl' : 'hover:scale-[1.01]'} ${depthClass}`}
-      onClick={() => onSelect(subnet.id)}
+      className={`group flex flex-col items-start transition-all duration-300 ease-in-out ${depthClass}`}
     >
       <div
-        className={`flex items-center justify-between w-full p-5 rounded-xl shadow-lg ${bgColor} ${borderColor} transition-all duration-300`}
+        className={`flex items-center justify-between w-full p-5 rounded-xl shadow-lg ${bgColor} ${borderColor} transition-all duration-300 cursor-pointer ${isSelected ? 'scale-[1.02] shadow-xl' : 'hover:scale-[1.01]'}`}
+        onClick={() => onSelect(subnet.id)}
       >
         <div className="flex items-center flex-1">
           {subnet.children.length > 0 && (
-            <ChevronRight className="w-5 h-5 text-primary mr-3 transform group-hover:rotate-90 transition-transform duration-300" />
+            <button
+              onClick={handleExpandToggle}
+              className="mr-3 p-1 rounded-md hover:bg-background/50 transition-colors duration-200"
+              title={isExpanded ? 'Collapse' : 'Expand'}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-5 h-5 text-primary transform transition-transform duration-200" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-primary transform transition-transform duration-200" />
+              )}
+            </button>
           )}
           <div className="flex flex-col">
             <span className={`font-mono text-xl font-bold ${textColor} ${isSelected ? 'text-primary' : ''}`}>
@@ -88,14 +107,16 @@ const SubnetNode: React.FC<SubnetNodeProps> = ({ subnet, isSelected, onSelect, o
         )}
       </div>
 
-      {subnet.children.length > 0 && (
-        <div className="mt-4 w-full space-y-4">
+      {subnet.children.length > 0 && isExpanded && (
+        <div className="mt-4 w-full space-y-4 animate-in slide-in-from-top-2 duration-300">
           {subnet.children.map(child => (
             <SubnetNode
               key={child.id}
               subnet={child}
               isSelected={false} // Children are not selected by default
+              isExpanded={true} // Children start expanded by default
               onSelect={onSelect}
+              onToggleExpand={onToggleExpand}
               onDivideSubnet={onDivideSubnet}
             />
           ))}
@@ -113,6 +134,52 @@ interface SubnetVisualizerProps {
 }
 
 const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSubnetId, onSelectSubnet, onDivideSubnet }) => {
+  const [expandedSubnets, setExpandedSubnets] = React.useState<Set<string>>(new Set());
+
+  const handleToggleExpand = (subnetId: string) => {
+    setExpandedSubnets(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subnetId)) {
+        newSet.delete(subnetId);
+      } else {
+        newSet.add(subnetId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleExpandAll = () => {
+    const allSubnetIds = new Set<string>();
+    const collectIds = (subnetList: IPv4Subnet[]) => {
+      subnetList.forEach(subnet => {
+        if (subnet.children.length > 0) {
+          allSubnetIds.add(subnet.id);
+        }
+        collectIds(subnet.children);
+      });
+    };
+    collectIds(subnets);
+    setExpandedSubnets(allSubnetIds);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedSubnets(new Set());
+  };
+
+  const totalExpandableSubnets = (() => {
+    let count = 0;
+    const countExpandable = (subnetList: IPv4Subnet[]) => {
+      subnetList.forEach(subnet => {
+        if (subnet.children.length > 0) {
+          count++;
+        }
+        countExpandable(subnet.children);
+      });
+    };
+    countExpandable(subnets);
+    return count;
+  })();
+
   if (subnets.length === 0) {
     return (
       <div className="p-8 bg-gradient-to-br from-surface to-surface/95 rounded-2xl shadow-2xl border border-border/50 backdrop-blur-sm text-center">
@@ -130,8 +197,28 @@ const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSu
           <Network className="w-6 h-6 text-primary mr-3" />
           Network Hierarchy
         </h2>
-        <div className="text-sm text-textSecondary bg-background/50 px-3 py-1 rounded-full">
-          {subnets.length} root {subnets.length === 1 ? 'network' : 'networks'}
+        <div className="flex items-center space-x-3">
+          {totalExpandableSubnets > 0 && (
+            <>
+              <button
+                onClick={handleExpandAll}
+                className="text-sm px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors duration-200"
+                title="Expand all subnets"
+              >
+                Expand All
+              </button>
+              <button
+                onClick={handleCollapseAll}
+                className="text-sm px-3 py-1 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-md transition-colors duration-200"
+                title="Collapse all subnets"
+              >
+                Collapse All
+              </button>
+            </>
+          )}
+          <div className="text-sm text-textSecondary bg-background/50 px-3 py-1 rounded-full">
+            {subnets.length} root {subnets.length === 1 ? 'network' : 'networks'} • {expandedSubnets.size}/{totalExpandableSubnets} expanded
+          </div>
         </div>
       </div>
       <div className="max-h-[500px] overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
@@ -140,7 +227,9 @@ const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSu
             key={subnet.id}
             subnet={subnet}
             isSelected={subnet.id === selectedSubnetId}
+            isExpanded={expandedSubnets.has(subnet.id)}
             onSelect={onSelectSubnet}
+            onToggleExpand={handleToggleExpand}
             onDivideSubnet={onDivideSubnet}
           />
         ))}
