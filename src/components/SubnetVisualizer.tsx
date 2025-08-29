@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { IPv4Subnet, SubnetDivisionMethod } from '../types';
-import { ChevronRight, ChevronDown, Divide, Zap, Hash, Network } from 'lucide-react';
+import { ChevronRight, ChevronDown, Divide, Zap, Hash, Network, Download } from 'lucide-react';
 
 interface SubnetNodeProps {
   subnet: IPv4Subnet;
@@ -135,6 +135,7 @@ interface SubnetVisualizerProps {
 
 const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSubnetId, onSelectSubnet, onDivideSubnet }) => {
   const [expandedSubnets, setExpandedSubnets] = React.useState<Set<string>>(new Set());
+  const [exportSuccess, setExportSuccess] = React.useState(false);
 
   const handleToggleExpand = (subnetId: string) => {
     setExpandedSubnets(prev => {
@@ -166,6 +167,67 @@ const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSu
     setExpandedSubnets(new Set());
   };
 
+  const exportToCSV = () => {
+    const csvData: string[][] = [
+      ['CIDR', 'IP Address', 'Prefix', 'Network Address', 'Broadcast Address', 'Subnet Mask', 'Total IPs', 'Usable Hosts', 'Parent ID', 'Depth', 'Has Children']
+    ];
+
+    let totalSubnets = 0;
+
+    const addSubnetToCSV = (subnet: IPv4Subnet, parentId: string | null = null) => {
+      totalSubnets++;
+      csvData.push([
+        subnet.cidr,
+        subnet.ipAddress,
+        subnet.prefix.toString(),
+        subnet.networkAddress,
+        subnet.broadcastAddress,
+        subnet.subnetMask,
+        subnet.totalIps.toString(),
+        subnet.usableHosts.toString(),
+        parentId || '',
+        subnet.depth.toString(),
+        subnet.children.length > 0 ? 'Yes' : 'No'
+      ]);
+
+      subnet.children.forEach(child => {
+        addSubnetToCSV(child, subnet.id);
+      });
+    };
+
+    subnets.forEach(subnet => {
+      addSubnetToCSV(subnet);
+    });
+
+    // Add summary information at the top
+    const summaryInfo = [
+      ['Network Hierarchy Export'],
+      ['Export Date', new Date().toLocaleString()],
+      ['Total Subnets', totalSubnets.toString()],
+      ['Root Networks', subnets.length.toString()],
+      [''],
+      ...csvData
+    ];
+
+    const csvContent = summaryInfo.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `network-hierarchy-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Show success feedback
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
+    }
+  };
+
   const totalExpandableSubnets = (() => {
     let count = 0;
     const countExpandable = (subnetList: IPv4Subnet[]) => {
@@ -193,10 +255,17 @@ const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSu
   return (
     <div className="p-8 bg-gradient-to-br from-surface to-surface/95 rounded-2xl shadow-2xl border border-border/50 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-text flex items-center">
-          <Network className="w-6 h-6 text-primary mr-3" />
-          Network Hierarchy
-        </h2>
+        <div className="flex items-center">
+          <h2 className="text-2xl font-bold text-text flex items-center">
+            <Network className="w-6 h-6 text-primary mr-3" />
+            Network Hierarchy
+          </h2>
+          {exportSuccess && (
+            <div className="ml-4 px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm font-medium animate-in slide-in-from-left-2">
+              ✓ Exported successfully!
+            </div>
+          )}
+        </div>
         <div className="flex items-center space-x-3">
           {totalExpandableSubnets > 0 && (
             <>
@@ -215,6 +284,16 @@ const SubnetVisualizer: React.FC<SubnetVisualizerProps> = ({ subnets, selectedSu
                 Collapse All
               </button>
             </>
+          )}
+          {subnets.length > 0 && (
+            <button
+              onClick={exportToCSV}
+              className="text-sm px-3 py-1 bg-accent/10 hover:bg-accent/20 text-accent rounded-md transition-colors duration-200 flex items-center"
+              title="Export hierarchy to CSV"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Export CSV
+            </button>
           )}
           <div className="text-sm text-textSecondary bg-background/50 px-3 py-1 rounded-full">
             {subnets.length} root {subnets.length === 1 ? 'network' : 'networks'} • {expandedSubnets.size}/{totalExpandableSubnets} expanded
