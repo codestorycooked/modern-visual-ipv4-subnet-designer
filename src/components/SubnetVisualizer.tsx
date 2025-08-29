@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { IPv4Subnet, SubnetDivisionMethod } from '../types';
 import { ChevronRight, ChevronDown, Divide, Zap, Hash, Network, Download } from 'lucide-react';
 

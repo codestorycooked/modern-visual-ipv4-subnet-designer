@@ -321,7 +321,7 @@ export const calculateRemainingSpace = (parentSubnet: IPv4Subnet, allocatedChild
     if (currentPointerInt < childNetworkInt) {
       const gapStartIp = binaryToIp(currentPointerInt.toString(2).padStart(32, '0'));
       const gapEndIp = binaryToIp((childNetworkInt - 1).toString(2).padStart(32, '0'));
-      let gapCidr = findLargestCidrBlock(gapStartIp, gapEndIp);
+      const gapCidr = findLargestCidrBlock(gapStartIp, gapEndIp);
       if (gapCidr) {
         remainingBlocks.push(gapCidr);
       }
@@ -334,7 +334,7 @@ export const calculateRemainingSpace = (parentSubnet: IPv4Subnet, allocatedChild
   if (currentPointerInt <= parentBroadcastInt) {
     const remainingStartIp = binaryToIp(currentPointerInt.toString(2).padStart(32, '0'));
     const remainingEndIp = binaryToIp(parentBroadcastInt.toString(2).padStart(32, '0'));
-    let remainingCidr = findLargestCidrBlock(remainingStartIp, remainingEndIp);
+    const remainingCidr = findLargestCidrBlock(remainingStartIp, remainingEndIp);
     if (remainingCidr) {
       remainingBlocks.push(remainingCidr);
     }

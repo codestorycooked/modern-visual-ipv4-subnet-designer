@@ -7,7 +7,6 @@ import {
   divideByNumHosts,
   calculateRemainingSpace,
   parseCidr,
-  isValidIp,
   isValidPrefix
 } from '../utils/ipv4Utils';
 import { deserializeSubnetState, getShareableUrl } from '../utils/urlState';

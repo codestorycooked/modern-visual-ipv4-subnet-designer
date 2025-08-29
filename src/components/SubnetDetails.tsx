@@ -8,7 +8,6 @@ import {
   Server,
   Divide,
   Hash,
-  Gauge,
   Zap,
   Globe,
   MinusCircle,
