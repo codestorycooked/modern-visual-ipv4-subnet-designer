@@ -1,5 +1,7 @@
 # 🌐 Modern Visual IPv4 Subnet Designer
 
+[![View on GitHub](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/codestorycooked/modern-visual-ipv4-subnet-designer)
+
 A powerful, intuitive web application fo### Sharing Your Designs
 - **Generate Shareable Links**: Click the "Share" button to use device sharing options or "Copy Link" to copy to clipboard
 - **Preserve State**: Shared links maintain your entire network hierarchy and selections
